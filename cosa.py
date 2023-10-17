@@ -148,3 +148,63 @@ def plot_graph(graph, length, beams, score):
 
 # Llamar a la función plot_graph con los argumentos correspondientes
 plot_graph(graph, length, 1.5, 'token')
+
+#beam search
+# Importación de la biblioteca tqdm para mostrar una barra de progreso
+from tqdm.notebook import tqdm
+
+# Función para realizar muestreo avaro (greedy sampling) de los logits
+def greedy_sampling(logits, beams):
+    # Devuelve los índices de los 'beams' principales según los logits
+    return torch.topk(logits, beams).indices
+
+# Función principal para la búsqueda con beam search
+def beam_search(input_ids, node, bar, length, beams, sampling, temperature=0.1):
+    # Caso base: si se ha alcanzado la longitud deseada, se retorna None
+    if length == 0:
+        return None
+
+    # Obtener las predicciones del modelo para las entradas actuales
+    outputs = model(input_ids)
+    predictions = outputs.logits
+
+    # Obtener los logits de la próxima sub-palabra predicha (usamos top-k search)
+    logits = predictions[0, -1, :]
+
+    # Dependiendo del método de muestreo especificado (greedy, top_k o nucleus),
+    # obtenemos los 'beams' principales
+    if sampling == 'greedy':
+        top_token_ids = greedy_sampling(logits, beams)
+    elif sampling == 'top_k':
+        top_token_ids = top_k_sampling(logits, temperature, 20, beams)
+    elif sampling == 'nucleus':
+        top_token_ids = nucleus_sampling(logits, temperature, 0.5, beams)
+
+    # Para cada uno de los 'beams' principales
+    for j, token_id in enumerate(top_token_ids):
+        # Actualizamos la barra de progreso
+        bar.update(1)
+
+        # Calculamos la puntuación del token predicho
+        token_score = get_log_prob(logits, token_id)
+
+        # Calculamos la puntuación acumulativa para esta rama del grafo
+        cumulative_score = graph.nodes[node]['cumscore'] + token_score
+
+        # Concatenamos el token predicho a las entradas actuales
+        new_input_ids = torch.cat([input_ids, token_id.unsqueeze(0).unsqueeze(0)], dim=-1)
+
+        # Agregamos un nodo y una arista al grafo
+        token = tokenizer.decode(token_id, skip_special_tokens=True)
+        current_node = list(graph.successors(node))[j]
+        graph.nodes[current_node]['tokenscore'] = np.exp(token_score) * 100
+        graph.nodes[current_node]['cumscore'] = cumulative_score
+        graph.nodes[current_node]['sequencescore'] = 1 / (len(new_input_ids.squeeze())) * cumulative_score
+        graph.nodes[current_node]['token'] = token + f"_{length}_{j}"
+
+        # Llamada recursiva para explorar esta rama del grafo
+        beam_search(new_input_ids, current_node, bar, length - 1, beams, sampling, 1)
+
+# Parámetros de la búsqueda con beam search
+length = 5  # Longitud deseada del texto generado
+beams = 2  # Número de 'beams' para explorar
