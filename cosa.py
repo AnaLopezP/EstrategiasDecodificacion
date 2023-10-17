@@ -102,12 +102,13 @@ from matplotlib.colors import LinearSegmentedColormap
 
 # Función para graficar el grafo
 def plot_graph(graph, length, beams, score):
-    fig, ax = plt.subplots(figsize=(3+1.2*beams**length, max(5, 2+length)), dpi=300, facecolor='white')
+    # Crear una figura y ejes para el gráfico
+    fig, ax = plt.subplots(figsize=(3 + 1.2 * beams ** length, max(5, 2 + length)), dpi=300, facecolor='white')
 
-    # Crear posiciones para cada nodo
+    # Crear posiciones para cada nodo en el gráfico
     pos = nx.nx_agraph.graphviz_layout(graph, prog="dot")
 
-    # Normalizar los colores en el rango de puntuaciones de tokens
+    # Normalizar los colores a lo largo del rango de puntuaciones de tokens
     if score == 'token':
         scores = [data['tokenscore'] for _, data in graph.nodes(data=True) if data['token'] is not None]
     elif score == 'sequence':
@@ -117,4 +118,33 @@ def plot_graph(graph, length, beams, score):
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     cmap = LinearSegmentedColormap.from_list('rg', ["r", "y", "g"], N=256)
 
-    # Dibujar los
+    # Dibujar los nodos en el gráfico
+    nx.draw_networkx_nodes(graph, pos, node_size=2000, node_shape='o', alpha=1, linewidths=4,
+                          node_color=scores, cmap=cmap)
+
+    # Dibujar las aristas (conexiones entre nodos)
+    nx.draw_networkx_edges(graph, pos)
+
+    # Dibujar las etiquetas de los nodos
+    if score == 'token':
+        labels = {node: data['token'].split('_')[0] + f"\n{data['tokenscore']:.2f}%" for node, data in graph.nodes(data=True) if data['token'] is not None}
+    elif score == 'sequence':
+        labels = {node: data['token'].split('_')[0] + f"\n{data['sequencescore']:.2f}" for node, data in graph.nodes(data=True) if data['token'] is not None}
+    nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10)
+    
+    # Eliminar el borde alrededor del gráfico
+    plt.box(False)
+
+    # Agregar una barra de colores
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    if score == 'token':
+        fig.colorbar(sm, ax=ax, orientation='vertical', pad=0, label='Probabilidad del token (%)')
+    elif score == 'sequence':
+        fig.colorbar(sm, ax=ax, orientation='vertical', pad=0, label='Puntuación de secuencia')
+    
+    # Mostrar el gráfico
+    plt.show()
+
+# Llamar a la función plot_graph con los argumentos correspondientes
+plot_graph(graph, length, 1.5, 'token')
