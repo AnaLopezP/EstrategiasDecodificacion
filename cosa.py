@@ -293,3 +293,53 @@ sequence, max_score = get_best_sequence(graph)
 print(f"Texto generado: {sequence}")
 # Graficar el grafo
 plot_graph(graph, length, beams, 'secuencia')
+
+#Top-k sampling
+def plot_prob_distribution(probabilities, next_tokens, sampling, potential_nb, total_nb=50):
+    # Obtener los mejores k tokens
+    top_k_prob, top_k_indices = torch.topk(probabilities, total_nb)
+    top_k_tokens = [tokenizer.decode([idx]) for idx in top_k_indices.tolist()]
+
+    # Obtener los próximos tokens y sus probabilidades
+    next_tokens_list = [tokenizer.decode([idx]) for idx in next_tokens.tolist()]
+    next_token_prob = probabilities[next_tokens].tolist()
+
+    # Crear una figura
+    plt.figure(figsize=(0.4*total_nb, 5), dpi=300, facecolor='white')
+    plt.rc('axes', axisbelow=True)
+    plt.grid(axis='y', linestyle='-', alpha=0.5)
+    if potential_nb < total_nb:
+        plt.axvline(x=potential_nb-0.5, ls=':', color='grey', label='Tokens muestreados')
+    plt.bar(top_k_tokens, top_k_prob.tolist(), color='blue')
+    plt.bar(next_tokens_list, next_token_prob, color='red', label='Tokens seleccionados')
+    plt.xticks(rotation=45, ha='right', va='top')
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    if sampling == 'top_k':
+        plt.title('Distribución de probabilidad de los tokens predichos con muestreo top-k')
+    elif sampling == 'núcleo':
+        plt.title('Distribución de probabilidad de los tokens predichos con muestreo de núcleo')
+    plt.legend()
+    plt.savefig(f'{sampling}_{time.time()}.png', dpi=300)
+    plt.close()
+
+def top_k_sampling(logits, temperature, top_k, beams, plot=True):
+    assert top_k >= 1
+    assert beams <= top_k
+
+    indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+    new_logits = torch.clone(logits)
+    new_logits[indices_to_remove] = float('-inf')
+
+    # Convertir logits a probabilidades
+    probabilities = torch.nn.functional.softmax(new_logits / temperature, dim=-1)
+
+    # Muestrear n tokens de la distribución resultante
+    next_tokens = torch.multinomial(probabilities, beams)
+
+    # Graficar la distribución
+    if plot:
+        total_prob = torch.nn.functional.softmax(logits / temperature, dim=-1)
+        plot_prob_distribution(total_prob, next_tokens, 'top-k', top_k)
+
+    return next_tokens
