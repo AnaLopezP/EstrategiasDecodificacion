@@ -199,3 +199,27 @@ for node in graph.nodes:
 
 # Start generating text
 beam_search(input_ids, 0, bar, length, beams, 'greedy', 1)
+def get_best_sequence(G):
+    # Create a list of leaf nodes
+    leaf_nodes = [node for node in G.nodes() if G.out_degree(node)==0]
+
+    # Get the leaf node with the highest cumscore
+    max_score_node = None
+    max_score = float('-inf')
+    for node in leaf_nodes:
+        if G.nodes[node]['sequencescore'] > max_score:
+            max_score = G.nodes[node]['sequencescore']
+            max_score_node = node
+
+    # Retrieve the sequence of nodes from this leaf node to the root node in a list
+    path = nx.shortest_path(G, source=0, target=max_score_node)
+
+    # Return the string of token attributes of this sequence
+    sequence = "".join([G.nodes[node]['token'].split('_')[0] for node in path])
+
+    return sequence, max_score
+
+sequence, max_score = get_best_sequence(graph)
+print(f"Generated text: {sequence}")
+# Plot graph
+plot_graph(graph, length, beams, 'sequence')
