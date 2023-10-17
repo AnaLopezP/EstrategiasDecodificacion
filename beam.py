@@ -12,6 +12,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 from nucleo import *
 from top_k import *
+from nucleo import nucleus_sampling
 from eje import *
 
 #background
