@@ -1,8 +1,3 @@
-%%capture
-
-# Install transformers and graphviz
-!sudo apt-get install graphviz graphviz-dev
-!pip install transformers pygraphviz
 
 # Make sure we're using UTF-8 as encoding
 import locale
