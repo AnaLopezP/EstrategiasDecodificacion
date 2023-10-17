@@ -208,3 +208,47 @@ def beam_search(input_ids, node, bar, length, beams, sampling, temperature=0.1):
 # Parámetros de la búsqueda con beam search
 length = 5  # Longitud deseada del texto generado
 beams = 2  # Número de 'beams' para explorar
+
+# Crear un árbol equilibrado con altura 'length' y factor de ramificación 'beams'
+graph = nx.balanced_tree(beams, length, create_using=nx.DiGraph())
+bar = tqdm(total=len(graph.nodes))  # Barra de progreso para rastrear el progreso de la búsqueda
+
+# Agregar atributos 'tokenscore', 'cumscore' y 'token' a cada nodo del grafo
+for node in graph.nodes:
+    graph.nodes[node]['tokenscore'] = 100  # Puntuación inicial para cada nodo
+    graph.nodes[node]['cumscore'] = 0  # Puntuación acumulada (se actualizará durante la búsqueda)
+    graph.nodes[node]['sequencescore'] = 0  # Puntuación de la secuencia (se actualizará durante la búsqueda)
+    graph.nodes[node]['token'] = text  # El texto inicial es el mismo para todos los nodos
+
+# Comenzar a generar texto utilizando la búsqueda con beam search
+beam_search(input_ids, 0, bar, length, beams, 'greedy', 1)
+
+# Función para obtener la mejor secuencia en el grafo 'G'
+def get_best_sequence(G):
+    # Crear una lista de nodos hoja
+    leaf_nodes = [node for node in G.nodes() if G.out_degree(node) == 0]
+
+    # Obtener el nodo hoja con la puntuación cumscore más alta
+    max_score_node = None
+    max_score = float('-inf')
+    for node in leaf_nodes:
+        if G.nodes[node]['sequencescore'] > max_score:
+            max_score = G.nodes[node]['sequencescore']
+            max_score_node = node
+
+    # Recuperar la secuencia de nodos desde este nodo hoja hasta el nodo raíz en una lista
+    path = nx.shortest_path(G, source=0, target=max_score_node)
+
+    # Devolver la cadena de atributos de token de esta secuencia
+    sequence = "".join([G.nodes[node]['token'].split('_')[0] for node in path])
+
+    return sequence, max_score
+
+# Obtener la mejor secuencia del grafo generado
+sequence, max_score = get_best_sequence(graph)
+print(f"Texto generado: {sequence}")
+
+# Comenzar a generar texto con búsqueda 'top_k'
+beam_search(input_ids, 0, bar, length, beams, 'top_k', 1)
+sequence, max_score = get_best_sequence(graph)
+print(f"Texto generado: {sequence}")
