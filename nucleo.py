@@ -2,6 +2,9 @@
 # Make sure we're using UTF-8 as encoding
 import locale
 locale.getpreferredencoding = lambda: "UTF-8"
+from beam import *
+from top_k import *
+from eje import *
 
 # Set seed
 import torch

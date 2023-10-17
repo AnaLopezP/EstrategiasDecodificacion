@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
+from nucleo import *
+from beam import *
+from eje import *
 
 
 #background
